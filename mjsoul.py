@@ -2,13 +2,11 @@ import random
 from wincheck import check_win, tenpai_check
 import hands
 from pool import build_pool, NTTile
-from hand_ops import sort_hand, hand_to_text
+from hand_ops import sort_hand, hand_to_text, kan_check
 from call_tiles import call_check
 
-# todo: implement calling tiles and tenpai (related)
-
-#Oct 4 - tenpai complete
-
+# to do: furiten and better display
+# also: rearrange game so it starts on the draw (instead of discard) for kans
 
 def find_tile(tile, hand):
 	tilefound = False
@@ -46,6 +44,7 @@ def start():
 	
 	while not state:
 		win = False
+		tcTemp = False
 	
 		game_pool = pool[:]
 		
@@ -57,7 +56,8 @@ def start():
 		
 		# generate hand
 		random.shuffle(game_pool)
-		hand = [game_pool.pop() for z_ in range(14)]
+		# hand = [game_pool.pop() for z_ in range(14)]
+		hand = hands.suuankou()
 		sort_hand(hand)
 		
 		#for calls
@@ -65,35 +65,36 @@ def start():
 		called_hand = []
 		# used to print calls
 		display_calls = [] 
+		# used for open kans
+		called_pons = []
 		
 		#simulate enemy hand
 		del game_pool[0:14]
 		
-		print("Hand:", hand_to_text(hand))
+		print "Hand:", hand_to_text(hand)
 		
 		win = check_win(hand)
 		
 		if win:
-			print("Tenhou! your hand:", hand_to_text(hand))
+			print "Tenhou!"
 		else:
 			while not win and (len(game_pool) > 14):
 			
 				# Discarding -------------
 				discarded = False
+				kanned = False
 				discard = raw_input("Enter discard tile:\n")
 				try:
 					hand.remove(find_tile(discard, hand))
 					discarded = True
-				except AttributeError:
-					print "Unknown Error"
 				except:
 					print("Error: tile not in hand.")
 				
 				if discarded:
-				
+					sort_hand(hand)
+					
 					# Enemy discard Phase -----
 					e_discard = game_pool.pop()
-					
 					enemy_discards.append(e_discard)
 		
 					print "Enemy discard:", hand_to_text([e_discard])
@@ -101,13 +102,15 @@ def start():
 					
 					test_hand = hand[:]
 					test_hand.append(e_discard)
+					sort_hand(test_hand)
 					
 					if check_win(test_hand, call_count):
-						print("Ron! Winning hand:", hand_to_text(sort_hand(test_hand)), display_calls)
+						print "Ron! Winning hand:", hand_to_text(test_hand), display_calls
 						win = True
 						
 					else:
 						# Calling discard ----------
+						
 						call = call_check(e_discard, hand)
 					
 						if call:
@@ -116,10 +119,19 @@ def start():
 							enemy_discards.remove(e_discard)
 							
 							if call == 'pon':
+								called_pons.append(e_discard)
 								for x in range(3):
 									called_tiles.append(e_discard)
 								for x in range(2):
 									hand.remove(e_discard)
+							
+							elif call == 'kan':
+								for x in range(4):
+									called_tiles.append(e_discard)
+								for x in range(3):
+									hand.remove(e_discard)
+								
+								kanned = True
 									
 							elif call == 'top run':
 								for num in range(e_discard.number, e_discard.number + 3):
@@ -150,23 +162,78 @@ def start():
 							print display_calls
 							
 						# Drawing Tiles -----------
-						else:
+						if not call or kanned:
 							draw = game_pool.pop()
 							
 							print "Drew the %s" %hand_to_text([draw])
 							
-							tc = tenpai_check(hand, call_count)
-							print(bool(tc))
-							if tc:
-								print("Tenpai! Waiting on:", tc)
-							
 							hand.append(draw)
-							sort_hand(hand)
 							
 							if check_win(hand, call_count):
-								print("Tsumo! Winning tile:", hand_to_text([draw]))
+								print "Tsumo! Winning tile:", hand_to_text([draw])
 								win = True
 								
+							else:
+								tc = tenpai_check(hand, call_count)
+								if tc and not (tc == tcTemp):
+									print "Tenpai! Waiting on:", hand_to_text(tc)
+									tcTemp = tc
+								
+								kan = kan_check(hand)
+								
+								#check whether drawn tile is a called pon
+								if not kan[0]:
+									kan[0] = draw in called_pons
+								
+								# theres got to be a better way
+								while kan[0]:
+									call_kan = raw_input("Call Kan? on: %s (type tile)\n" % hand_to_text(kan[1:]))
+									
+									if call_kan:
+										try: # check indentation for debugging
+											kanned_tile = find_tile(call_kan, kan[1:])
+											
+											called_tiles = []
+											
+											call_count += 1
+											for x in range(4):
+												called_tiles.append(kanned_tile)
+											for x in range(4):
+												hand.remove(kanned_tile)
+												
+											called_hand.append(called_tiles)
+											display_calls.append(hand_to_text(called_tiles))
+											
+											draw = game_pool.pop()
+								
+											print "Drew the %s" %hand_to_text([draw])
+											
+											hand.append(draw)
+											
+											sort_hand(hand)
+											print hand_to_text(hand)
+											
+											
+											if check_win(hand, call_count):
+												print "Tsumo! Winning tile:", hand_to_text([draw])
+												win = True
+												
+											else:
+												tc = tenpai_check(hand, call_count)
+												if tc and not (tc == tcTemp):
+													print "Tenpai! Waiting on:", hand_to_text(tc)
+													tcTemp = tc
+												
+												kan = kan_check(hand)
+										except Exception as e:
+											print e
+											print "Error: Tile cannot be Kanned"
+												
+												
+									else:
+										kan[0] = False
+										
+							
 							print(hand_to_text(hand))
 							if call_count > 0:
 								print(display_calls)
@@ -220,7 +287,7 @@ def test():
 	mode = raw_input("tenpai or check win? \n")
 	
 	# hand that should win
-	winning_hand = hands.called_hand()
+	winning_hand = hands.kokushi()
 	call_count = 2
 	# call_count = 0
 	
@@ -231,16 +298,9 @@ def test():
 		
 		tenpai_tiles = tenpai_check(winning_hand, call_count)
 		
-		flat = []
-		for tile in tenpai_tiles:
-			for ti_ in tile:
-				flat.append(ti_)
-		
-		list(set(flat))
-		sort_hand(flat)
 		
 		if tenpai_tiles:
-			print "Tenpai for:", hand_to_text(flat)
+			print "Tenpai for:", hand_to_text(tenpai_tiles)
 		else:
 			print("Not in tenpai")
 			
