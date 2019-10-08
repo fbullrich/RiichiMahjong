@@ -1,6 +1,5 @@
 from pool import unique_tiles
 from hand_ops import sort_hand
-
 		
 def check_for_triplets(tiles):
 #destructive
@@ -30,13 +29,11 @@ def check_for_triplets(tiles):
 	return triplets
 	
 
-def check_for_runs(tiles, dir = 1):
+def check_for_runs(tiles):
 #destructive
 #finds runs from the bottom up 
 #takes in a set of tiles and returns a list of lists, 
 #with the inner lists being runs of 3 tiles
-# dir -> 1: bottom to top - default
-# dir -> -1: top to bottom
 
 	all_runs = []
 	
@@ -44,17 +41,8 @@ def check_for_runs(tiles, dir = 1):
 	# i.e. if there are 3 tiles left and a run cannot be formed
 	no_more_runs = False 
 	
-	#use for switching case, this sucks tbh
-	switching = False
-	if dir == 0:
-		switching = True
-		dir = 1
-	
 	#counter
- 	if dir == -1:
-		i_ = len(tiles) - 1
-	else:
-		i_ = 0
+	i_ = 0
 	
 	while len(tiles) >= 3 and not no_more_runs:
 			
@@ -69,19 +57,16 @@ def check_for_runs(tiles, dir = 1):
 		if not temp1.ishonor:
 			# tile.number -> 'number'
 			for temp2tile in tiles:
-				if temp2tile.number == temp1.number + 1 * dir:
+				if temp2tile.number == temp1.number + 1:
 					temp2 = temp2tile
 					break
 			
 			for temp3tile in tiles:
-				if temp3tile.number == temp1.number + 2 * dir:
+				if temp3tile.number == temp1.number + 2:
 					temp3 = temp3tile
 					break
 			
 			if temp1 and temp2 and temp3:
-				if switching:
-					dir *= -1
-				
 				all_runs.append([temp1, temp2, temp3])
 				
 				#remove run tiles from the list
@@ -90,20 +75,16 @@ def check_for_runs(tiles, dir = 1):
 				tiles.remove(temp3)
 				
 				#reset index to not miss any runs
-				if dir == -1:
-					i_ = len(tiles) - 1
-				else:
-					i_ = 0
+				i_ = 0
 				
 			else:
-				if i_ >= tiles.index(tiles[-3]) and (dir > 0):
-					no_more_runs = True
-				elif i_ <= 2 and (dir < 0):
+				# if 
+				if i_ >= tiles.index(tiles[-3]):
 					no_more_runs = True
 				else:
-					i_ += 1 * dir
+					i_ += 1
 		else:
-			i_ += 1 * dir
+			i_ += 1 
 			
 	return all_runs	
 		
@@ -309,8 +290,11 @@ def tenpai_check(hand, call_count = 0):
 			if tenpai_tiles and (tenpai_tiles not in winning_tiles):
 				discard_for_tenpai.append(tile)
 				winning_tiles.append(tenpai_tiles)
+	
+	wt = list(set([tile for tiles in winning_tiles for tile in tiles]))
+	sort_hand(wt)
 			
-	return winning_tiles
+	return wt
 	
 	
 	
